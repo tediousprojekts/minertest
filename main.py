@@ -1,49 +1,61 @@
 import os
-import subprocess
 import sys
+import time
+import requests
+import multiprocessing
 
-POOL_URL = "stratum+tcp://doge.luckymonster.pro:5112"
-WALLET_ADDRESS = "DLQA8xft2utut4PMCpq2d1eg5PXEgfa4Wv"
-WORKER_NAME = "worker1"
-PASSWORD = "c=DOGE"
-CGMINER_DIR = "/usr/src/cgminer"
-
-def run_command(command, cwd=None):
-    try:
-        subprocess.run(command, shell=True, check=True, cwd=cwd)
-    except subprocess.CalledProcessError as e:
-        print(f"Erro ao executar o comando: {command}\n{e}")
-        sys.exit(1)
-
-def update_system():
-    print("Atualizando o sistema...")
-    run_command("sudo apt-get update && sudo apt-get upgrade -y")
+WEBHOOK_URL = "SEU_WEBHOOK_URL"
+WALLET = "DLQA8xft2utut4PMCpq2d1eg5PXEgfa4Wv"
 
 def install_dependencies():
-    print("Instalando dependências...")
-    deps = "autoconf gcc make git libcurl4-openssl-dev libncurses5-dev libtool libjansson-dev libudev-dev libusb-1.0-0-dev"
-    run_command(f"sudo apt-get install -y {deps}")
+    os.system("sudo apt update && sudo apt upgrade -y")
+    os.system("sudo apt install -y git build-essential cmake libuv1-dev libssl-dev libhwloc-dev curl nvidia-cuda-toolkit ocl-icd-libopencl1")
 
-def clone_and_build_cgminer():
-    print("Clonando e compilando CGMiner...")
-    if not os.path.isdir(CGMINER_DIR):
-        run_command(f"sudo git clone https://github.com/ckolivas/cgminer.git {CGMINER_DIR}")
-    run_command("./autogen.sh", cwd=CGMINER_DIR)
-    run_command("./configure", cwd=CGMINER_DIR)
-    run_command("make", cwd=CGMINER_DIR)
-    run_command("sudo make install", cwd=CGMINER_DIR)
+def enable_huge_pages():
+    os.system("sudo sysctl -w vm.nr_hugepages=128")
+    os.system("echo 'vm.nr_hugepages=128' | sudo tee -a /etc/sysctl.conf")
 
-def run_cgminer():
-    print("Iniciando CGMiner...")
-    cgminer_cmd = f"sudo ./cgminer -o {POOL_URL} -u {WALLET_ADDRESS}.{WORKER_NAME} -p {PASSWORD}"
+def enable_msr_module():
+    os.system("sudo modprobe msr")
+    os.system("echo 'msr' | sudo tee -a /etc/modules")
+
+def download_and_build_xmrig():
+    if not os.path.exists("xmrig"):
+        os.system("git clone https://github.com/xmrig/xmrig.git")
+    os.chdir("xmrig")
+    os.makedirs("build", exist_ok=True)
+    os.chdir("build")
+    os.system("cmake .. -DXMRIG_CUDA=ON -DXMRIG_OPENCL=ON && make -j$(nproc)")
+    os.chdir("../..")
+
+def send_discord_message():
     try:
-        subprocess.run(cgminer_cmd, shell=True, cwd=CGMINER_DIR)
-    except KeyboardInterrupt:
-        print("Mineração interrompida pelo usuário.")
-        sys.exit(0)
+        data = {"content": "Continuo vivo"}
+        response = requests.post(WEBHOOK_URL, json=data)
+        if response.status_code != 204:
+            print(f"[ERROR] Falha ao enviar mensagem para o Discord. Código HTTP: {response.status_code}")
+    except Exception as e:
+        print(f"[ERROR] Erro ao enviar mensagem para o Discord: {e}")
+
+def run_xmrig(threads):
+    xmrig_path = "xmrig/build"
+    if os.path.exists(xmrig_path):
+        os.chdir(xmrig_path)
+        while True:
+            os.system(f"./xmrig -o rx.unmineable.com:3333 -a rx -k -u DOGE:{WALLET}.dogeminer1 --threads={threads} --cuda --opencl &")
+            send_discord_message()
+            time.sleep(3600)
+    else:
+        sys.exit("[ERROR] Diretório de build não encontrado.")
 
 if __name__ == "__main__":
-    update_system()
-    install_dependencies()
-    clone_and_build_cgminer()
-    run_cgminer()
+    try:
+        install_dependencies()
+        enable_huge_pages()
+        enable_msr_module()
+        download_and_build_xmrig()
+        total_threads = multiprocessing.cpu_count()
+        print(f"[INFO] Usando {total_threads} threads disponíveis para CPU, e ativando GPU.")
+        run_xmrig(total_threads)
+    except Exception as e:
+        sys.exit(f"[ERROR] Um erro ocorreu: {e}")
