@@ -2,7 +2,6 @@ import os
 import subprocess
 import sys
 
-# Configurações
 POOL_URL = "stratum+tcp://doge.luckymonster.pro:5112"
 WALLET_ADDRESS = "DLQA8xft2utut4PMCpq2d1eg5PXEgfa4Wv"
 WORKER_NAME = "worker1"
@@ -10,7 +9,6 @@ PASSWORD = "c=DOGE"
 CGMINER_DIR = "/usr/src/cgminer"
 
 def run_command(command, cwd=None):
-    """Executa um comando no terminal."""
     try:
         subprocess.run(command, shell=True, check=True, cwd=cwd)
     except subprocess.CalledProcessError as e:
@@ -18,18 +16,15 @@ def run_command(command, cwd=None):
         sys.exit(1)
 
 def update_system():
-    """Atualiza o sistema operacional."""
     print("Atualizando o sistema...")
     run_command("sudo apt-get update && sudo apt-get upgrade -y")
 
 def install_dependencies():
-    """Instala dependências necessárias."""
     print("Instalando dependências...")
     deps = "autoconf gcc make git libcurl4-openssl-dev libncurses5-dev libtool libjansson-dev libudev-dev libusb-1.0-0-dev"
     run_command(f"sudo apt-get install -y {deps}")
 
 def clone_and_build_cgminer():
-    """Clona e compila o CGMiner."""
     print("Clonando e compilando CGMiner...")
     if not os.path.isdir(CGMINER_DIR):
         run_command(f"sudo git clone https://github.com/ckolivas/cgminer.git {CGMINER_DIR}")
@@ -39,7 +34,6 @@ def clone_and_build_cgminer():
     run_command("sudo make install", cwd=CGMINER_DIR)
 
 def run_cgminer():
-    """Executa o CGMiner com as configurações fornecidas."""
     print("Iniciando CGMiner...")
     cgminer_cmd = f"sudo ./cgminer -o {POOL_URL} -u {WALLET_ADDRESS}.{WORKER_NAME} -p {PASSWORD}"
     try:
